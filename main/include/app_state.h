@@ -10,6 +10,7 @@
 
 typedef struct {
     SCHEDULER_TaskTypeDef LedTask;
+    SCHEDULER_TaskTypeDef BleTask;
 } APP_Tasks;
 
 typedef struct {

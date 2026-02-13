@@ -1,7 +1,9 @@
 #include "app_state.h"
+#include "ble.h"
 #include "led_strip.h"
 #include "driver/gptimer.h"
 
+#include "tasks_common.h"
 #include "power.h"
 #include "timer.h"
 #include "led.h"
@@ -46,6 +48,19 @@ void app_main(void) {
     LOGGER_SetLevel(LOGGER_LEVEL_DEBUG);
 
     LED_StartTask();
+
+    gAppState.Tasks->BleTask = (SCHEDULER_TaskTypeDef){
+        .CoreID = BLE_TASK_CORE_ID,
+        .Name = "NimBLE Task",
+        .Priority = BLE_TASK_PRIORITY,
+        .StackDepth = BLE_TASK_STACK_DEPTH,
+        .Args = NULL,
+    };
+    BLE_HandleTypeDef hble = {
+        .BLE_Task = &gAppState.Tasks->BleTask,
+        .DeviceName = "LED Sensor",
+        .GapAppearance = 0x02C0 // Sensor appearance
+    };
 }
 
 bool IRAM_ATTR tim_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
