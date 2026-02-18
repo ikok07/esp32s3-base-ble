@@ -90,7 +90,14 @@ int led_state_access_cb(uint16_t conn_handle, uint16_t attr_handle,
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR:
             if (attr_handle == gBleBspChrs.LedStateChrHandle) {
-                char *active_light = led_active_light_label(0);
+                SHVAL_ErrorTypeDef shval_err;
+                uint32_t led_light_num;
+                if ((shval_err = SHVAL_GetValue(&gAppState.SharedValues->LedLightState, &led_light_num, 1000)) != SHVAL_ERROR_OK) {
+                    LOGGER_LogF(LOGGER_LEVEL_ERROR, "Failed to get shared LED light state! Error code: %d", shval_err);
+                    return BLE_ATT_ERR_UNLIKELY;
+                }
+
+                char *active_light = led_active_light_label(led_light_num);
                 err = os_mbuf_append(ctxt->om, active_light, strlen(active_light) + 1);
 
                 return err == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;

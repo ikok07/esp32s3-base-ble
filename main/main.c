@@ -7,7 +7,6 @@
 #include "led.h"
 #include "log.h"
 
-// TODO: Different tasks should subscribe to led color change event
 // TODO: Handle GAP unsubscribe event
 // TODO: Implement BLE bonding
 

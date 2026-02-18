@@ -5,11 +5,10 @@
 #ifndef ESP32S3_APP_STATE_H
 #define ESP32S3_APP_STATE_H
 
-#include <stdint.h>
-
 #include "timer.h"
 #include "task_scheduler.h"
 #include "ble.h"
+#include "shared_values.h"
 
 typedef struct {
     SCHEDULER_TaskTypeDef LedTask;
@@ -18,9 +17,14 @@ typedef struct {
 } APP_TasksTypeDef;
 
 typedef struct {
+    SHVAL_HandleTypeDef LedLightState;
+} APP_SharedValuesTypeDef;
+
+typedef struct {
     TIMER_HandleTypeDef *htim;
     BLE_HandleTypeDef *hble;
     APP_TasksTypeDef *Tasks;
+    APP_SharedValuesTypeDef *SharedValues;
 } APP_StateTypeDef;
 
 extern APP_StateTypeDef gAppState;

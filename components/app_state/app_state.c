@@ -7,6 +7,7 @@
 TIMER_HandleTypeDef htim;
 BLE_HandleTypeDef hble;
 APP_TasksTypeDef tasks;
+APP_SharedValuesTypeDef shared_values;
 
 APP_StateTypeDef gAppState;
 
@@ -14,6 +15,7 @@ void APP_Init() {
     gAppState = (APP_StateTypeDef){
         .htim = &htim,
         .hble = &hble,
-        .Tasks = &tasks
+        .Tasks = &tasks,
+        .SharedValues = &shared_values
     };
 }

@@ -14,4 +14,11 @@ void SCHEDULER_Create(SCHEDULER_TaskTypeDef *Task) {
         &Task->OsTask,
         Task->CoreID
     );
+    Task->Active = 1;
+}
+
+void SCHEDULER_Remove(SCHEDULER_TaskTypeDef *Task) {
+    TaskHandle_t os_task = Task->OsTask;
+    *Task = (SCHEDULER_TaskTypeDef){0};
+    vTaskSuspend(os_task);
 }

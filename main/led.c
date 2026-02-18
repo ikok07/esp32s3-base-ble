@@ -11,6 +11,8 @@
 #include "log.h"
 #include "tasks_common.h"
 
+#define LED_SUBSCRIBERS_QUEUE_LEN                                   1
+
 static led_strip_handle_t hled;
 static volatile LED_ActiveLightTypeDef currentLight = LED_ACTIVE_RED;
 
@@ -19,16 +21,18 @@ static void led_task(void *arg);
 
 bool IRAM_ATTR tim_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx);
 
+static SCHEDULER_TaskTypeDef gConfigTask = {
+    .Active = 0,
+    .CoreID = LED_CFG_TASK_CORE_ID,
+    .Name = "LED Config Task",
+    .Priority = LED_CFG_TASK_PRIORITY,
+    .StackDepth = LED_CFG_TASK_STACK_DEPTH,
+    .Args = NULL,
+    .Function = led_config_task
+};
+
 void LED_Init() {
-    SCHEDULER_TaskTypeDef config_task = {
-        .CoreID = LED_CFG_TASK_CORE_ID,
-        .Name = "LED Config Task",
-        .Priority = LED_CFG_TASK_PRIORITY,
-        .StackDepth = LED_CFG_TASK_STACK_DEPTH,
-        .Args = NULL,
-        .Function = led_config_task
-    };
-    SCHEDULER_Create(&config_task);
+    SCHEDULER_Create(&gConfigTask);
 }
 
 void led_config_task(void *arg) {
@@ -70,7 +74,14 @@ void led_config_task(void *arg) {
         return;
     };
 
+    gAppState.SharedValues->LedLightState = (SHVAL_HandleTypeDef){
+        .Mutex = xSemaphoreCreateMutex(),
+        .SubscribersQueue = xQueueCreate(LED_SUBSCRIBERS_QUEUE_LEN, sizeof(uint8_t)),
+        .SubscribersCount = LED_SUBSCRIBERS_QUEUE_LEN
+    };
+
     gAppState.Tasks->LedTask = (SCHEDULER_TaskTypeDef){
+        .Active = 0,
         .Args = NULL,
         .CoreID = LED_TASK_CORE_ID,
         .Name = "LED Task",
@@ -80,7 +91,8 @@ void led_config_task(void *arg) {
     };
     SCHEDULER_Create(&gAppState.Tasks->LedTask);
 
-    vTaskSuspend(NULL);
+    // Remove the config task
+    SCHEDULER_Remove(&gConfigTask);
 }
 
 void led_task(void *arg) {
@@ -95,11 +107,18 @@ void led_task(void *arg) {
                 currentLight == LED_ACTIVE_BLUE ? value : 0
             ));
             ESP_ERROR_CHECK(led_strip_refresh(hled));
+
+            SHVAL_ErrorTypeDef shval_err;
+            if ((shval_err = SHVAL_SetValue(&gAppState.SharedValues->LedLightState, currentLight, 1000)) != SHVAL_ERROR_OK) {
+                LOGGER_LogF(LOGGER_LEVEL_ERROR, "Failed to set shared led light state! Error code: %d", shval_err);
+            };
+
             currentLight++;
-            if (currentLight == LED_ACTIVE_BLUE) currentLight = LED_ACTIVE_RED;
-            xTaskNotifyGive(gAppState.Tasks->LedNotifyTask.OsTask);
+            if (currentLight > LED_ACTIVE_BLUE) currentLight = LED_ACTIVE_RED;
         }
     }
+
+    SCHEDULER_Remove(&gAppState.Tasks->LedTask);
 }
 
 bool IRAM_ATTR tim_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
