@@ -1,8 +1,9 @@
 //
-// Created by Kok on 2/14/26.
+// Created by Kok on 3/14/26.
 //
 
-#include "board_specific.h"
+#include "bt_config.h"
+
 #include "ble.h"
 #include "log.h"
 #include "app_state.h"
@@ -31,10 +32,20 @@ static const ble_uuid16_t description_dsc_uuid = BLE_UUID16_INIT(0x2901);
                                                                     }\
 
 
-BLE_BspChrsTypeDef gBleBspChrs;
+BLE_AttributesTypeDef gBleAttributes;
+
+/* ------ Driver CBs ------ */
+
+void on_gap_event(BLE_GapEventTypeDef Event, struct ble_gap_event *GapEvent, void *Arg);
+void on_gatt_reg_event(BLE_GattRegisterEventTypeDef Event, struct ble_gatt_register_ctxt *EventCtxt, void *Arg);
+uint8_t on_gatt_subscribe_event(struct ble_gap_event *event);
+void on_error(BLE_ErrorTypeDef Error);
+void on_advertise_services(struct ble_hs_adv_fields *Fields);
+
+/* ------ Services Access CBs ------ */
 
 int led_state_access_cb(uint16_t conn_handle, uint16_t attr_handle,
-                               struct ble_gatt_access_ctxt *ctxt, void *arg);
+                        struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 int led_set_state_access_cb(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg);
@@ -56,7 +67,7 @@ struct ble_gatt_svc_def gGattServices[] = {
                     .uuid = &led_chr_state_uuid.u,
                     .flags = BLE_GATT_CHR_F_READ  | BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_NOTIFY,
                     // .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,            // Non-secure version
-                    .val_handle = &gBleBspChrs.LedStateChrHandle,
+                    .val_handle = &gBleAttributes.LedStateChrHandle,
                     .access_cb = led_state_access_cb,
                     .descriptors = (struct ble_gatt_dsc_def[]){
                             BLE_DSC_OBJ_DESCRIPTION(description_dsc_access_cb, "LED color"),
@@ -66,7 +77,7 @@ struct ble_gatt_svc_def gGattServices[] = {
             {
                     .uuid = &led_chr_set_state_uuid.u,
                     .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
-                    .val_handle = &gBleBspChrs.LEDSetStateChrHandle,
+                    .val_handle = &gBleAttributes.LEDSetStateChrHandle,
                     .access_cb = led_set_state_access_cb,
                     .descriptors = (struct ble_gatt_dsc_def[]){
                         BLE_DSC_OBJ_DESCRIPTION(description_dsc_access_cb, "Set LED color"),
@@ -76,7 +87,7 @@ struct ble_gatt_svc_def gGattServices[] = {
             {
                     .uuid = &led_chr_cycle_uuid.u,
                     .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
-                    .val_handle = &gBleBspChrs.LEDCycleChrHandle,
+                    .val_handle = &gBleAttributes.LEDCycleChrHandle,
                     .access_cb = led_cycle_access_cb,
                     .descriptors = (struct ble_gatt_dsc_def[]){
                         BLE_DSC_OBJ_DESCRIPTION(description_dsc_access_cb, "LED auto color cycle enabled"),
@@ -89,7 +100,20 @@ struct ble_gatt_svc_def gGattServices[] = {
     {0}
 };
 
-void BLE_GapEventCB(BLE_GapEventTypeDef Event, struct ble_gap_event *GapEvent, void *Arg) {
+
+void BT_Configure(BLE_HandleTypeDef *hble) {
+    hble->Callbacks = (BLE_CallbacksTypeDef) {
+        .on_gap_event = on_gap_event,
+        .on_gatt_reg_event = on_gatt_reg_event,
+        .on_gatt_subscribe_event = on_gatt_subscribe_event,
+        .on_advertise_services = on_advertise_services,
+        .on_error = on_error
+    };
+
+    hble->Config.GattServices = gGattServices;
+}
+
+void on_gap_event(BLE_GapEventTypeDef Event, struct ble_gap_event *GapEvent, void *Arg) {
     switch (Event) {
         case BLE_GAP_EVENT_CONN_SUCCESS:
             LOGGER_LogF(LOGGER_LEVEL_INFO, "BLE Device %d connected!", GapEvent->connect.conn_handle);
@@ -132,7 +156,7 @@ void BLE_GapEventCB(BLE_GapEventTypeDef Event, struct ble_gap_event *GapEvent, v
     }
 }
 
-void BLE_GattRegEventCB(BLE_GattRegisterEventTypeDef Event, struct ble_gatt_register_ctxt *EventCtxt, void *Arg) {
+void on_gatt_reg_event(BLE_GattRegisterEventTypeDef Event, struct ble_gatt_register_ctxt *EventCtxt, void *Arg) {
     switch (Event) {
         case BLE_GATT_REG_EVENT_REG_SVC:
             LOGGER_LogF(LOGGER_LEVEL_INFO, "New service registered! Handle: 0x%04X", EventCtxt->svc.handle);
@@ -148,8 +172,8 @@ void BLE_GattRegEventCB(BLE_GattRegisterEventTypeDef Event, struct ble_gatt_regi
     }
 }
 
-uint8_t BLE_GattSubscribeCB(struct ble_gap_event *event) {
-    if (event->subscribe.attr_handle == gBleBspChrs.LedStateChrHandle) {
+uint8_t on_gatt_subscribe_event(struct ble_gap_event *event) {
+    if (event->subscribe.attr_handle == gBleAttributes.LedStateChrHandle) {
         uint8_t is_encrypted;
         if (BLE_CheckConnEncrypted(event->subscribe.conn_handle, &is_encrypted) != BLE_ERROR_OK || !is_encrypted) {
             return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
@@ -158,11 +182,11 @@ uint8_t BLE_GattSubscribeCB(struct ble_gap_event *event) {
     return 0;
 }
 
-void BLE_ErrorCB(BLE_ErrorTypeDef Error) {
+void on_error(BLE_ErrorTypeDef Error) {
     LOGGER_LogF(LOGGER_LEVEL_ERROR, "An error occurred in BLE driver! Error code: %d", Error);
 }
 
-void BLE_AdvertiseSvcsCB(struct ble_hs_adv_fields *Fields) {
+void on_advertise_services(struct ble_hs_adv_fields *Fields) {
     Fields->uuids128 = (ble_uuid128_t[]){led_service_uuid};
     Fields->num_uuids128 = 1;
     Fields->uuids128_is_complete = 1;
@@ -174,7 +198,7 @@ int led_state_access_cb(uint16_t conn_handle, uint16_t attr_handle,
 
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR:
-            if (attr_handle == gBleBspChrs.LedStateChrHandle) {
+            if (attr_handle == gBleAttributes.LedStateChrHandle) {
                 SHVAL_ErrorTypeDef shval_err;
                 uint32_t led_light_num;
                 if ((shval_err = SHVAL_GetValue(&gAppState.SharedValues->LedLightState, &led_light_num, 1000)) != SHVAL_ERROR_OK) {
@@ -201,7 +225,7 @@ int led_set_state_access_cb(uint16_t conn_handle, uint16_t attr_handle,
 
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
-            if (attr_handle == gBleBspChrs.LEDSetStateChrHandle) {
+            if (attr_handle == gBleAttributes.LEDSetStateChrHandle) {
                 if (ctxt->om->om_len != 1) return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
                 uint8_t write_val = *ctxt->om->om_data;
                 if (write_val > 2) return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
@@ -228,7 +252,7 @@ int led_cycle_access_cb(uint16_t conn_handle, uint16_t attr_handle,
 
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR:
-            if (attr_handle == gBleBspChrs.LEDCycleChrHandle) {
+            if (attr_handle == gBleAttributes.LEDCycleChrHandle) {
                 uint32_t cycle_enabled;
                 if ((shval_err = SHVAL_GetValue(&gAppState.SharedValues->LedAutoCycleEnabled, &cycle_enabled, 1000)) != SHVAL_ERROR_OK) {
                     LOGGER_LogF(LOGGER_LEVEL_ERROR, "Failed to get shared LED cycle variable! Error code: %d", shval_err);
@@ -240,7 +264,7 @@ int led_cycle_access_cb(uint16_t conn_handle, uint16_t attr_handle,
             }
             break;
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
-            if (attr_handle == gBleBspChrs.LEDCycleChrHandle) {
+            if (attr_handle == gBleAttributes.LEDCycleChrHandle) {
                 if (ctxt->om->om_len != 1) return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
                 uint8_t write_val = *ctxt->om->om_data;
                 if (write_val > 1) return BLE_ATT_ERR_VALUE_NOT_ALLOWED;

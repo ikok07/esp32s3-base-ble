@@ -8,8 +8,7 @@
 
 #include "led.h"
 #include "app_state.h"
-#include "board_specific.h"
-#include "gap.h"
+#include "bt_config.h"
 #include "tasks_common.h"
 #include "log.h"
 
@@ -117,7 +116,7 @@ void led_notify_task(void *arg) {
             }
 
             uint8_t err = 0;
-            if ((err = ble_gatts_notify_custom(conn->hconn, gBleBspChrs.LedStateChrHandle, om)) != 0) {
+            if ((err = ble_gatts_notify_custom(conn->hconn, gBleAttributes.LedStateChrHandle, om)) != 0) {
                 LOGGER_LogF(LOGGER_LEVEL_ERROR, "Failed to send notification! %d", err);
                 os_mbuf_free_chain(om);
                 continue;
