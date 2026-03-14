@@ -75,6 +75,8 @@ void bt_config_task(void *arg) {
         }
     };
 
+    BT_Configure(gAppState.hble);
+
     if ((ble_err = BLE_Init(gAppState.hble)) != BLE_ERROR_OK) {
         LOGGER_LogF(LOGGER_LEVEL_FATAL, "Failed to initialize BLE! Error code: %d", ble_err);
     };

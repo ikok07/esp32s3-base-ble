@@ -58,7 +58,7 @@ int description_dsc_access_cb(uint16_t conn_handle, uint16_t attr_handle,
 
 char *led_active_light_label(uint8_t ActiveLight);
 
-struct ble_gatt_svc_def gGattServices[] = {
+static struct ble_gatt_svc_def gGattServices[] = {
     {
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
         .uuid = &led_service_uuid.u,
