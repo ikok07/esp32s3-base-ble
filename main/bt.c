@@ -63,6 +63,8 @@ void bt_config_task(void *arg) {
             .GapRole = BLE_GAP_ROLE_PERIPHERAL,
             .PrivateAddressEnabled = 0,
             .MaxConnections = 1,
+            .DiscoverabilityMode = BLE_DISC_MODE_ALLOW_ALL,
+            .ConnectionMode = BLE_CONN_MODE_ALLOW_ALL,
             .Security = {
                 .EncryptedConnection = 1,
                 .IOCapability = BLE_IOCAP_DISP_ONLY,
