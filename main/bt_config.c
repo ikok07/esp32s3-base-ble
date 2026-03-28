@@ -40,7 +40,7 @@ void on_gap_event(BLE_GapEventTypeDef Event, struct ble_gap_event *GapEvent, voi
 void on_gatt_reg_event(BLE_GattRegisterEventTypeDef Event, struct ble_gatt_register_ctxt *EventCtxt, void *Arg);
 uint8_t on_gatt_subscribe_event(struct ble_gap_event *event);
 void on_error(BLE_ErrorTypeDef Error);
-void on_advertise_services(struct ble_hs_adv_fields *Fields);
+void on_advertise(struct ble_hs_adv_fields *Fields);
 
 /* ------ Services Access CBs ------ */
 
@@ -106,7 +106,7 @@ void BT_Configure(BLE_HandleTypeDef *hble) {
         .on_gap_event = on_gap_event,
         .on_gatt_reg_event = on_gatt_reg_event,
         .on_gatt_subscribe_event = on_gatt_subscribe_event,
-        .on_advertise_services = on_advertise_services,
+        .on_advertise = on_advertise,
         .on_error = on_error
     };
 
@@ -186,7 +186,7 @@ void on_error(BLE_ErrorTypeDef Error) {
     LOGGER_LogF(LOGGER_LEVEL_ERROR, "An error occurred in BLE driver! Error code: %d", Error);
 }
 
-void on_advertise_services(struct ble_hs_adv_fields *Fields) {
+void on_advertise(struct ble_hs_adv_fields *Fields) {
     Fields->uuids128 = (ble_uuid128_t[]){led_service_uuid};
     Fields->num_uuids128 = 1;
     Fields->uuids128_is_complete = 1;
